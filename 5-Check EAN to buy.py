@@ -33,7 +33,6 @@ with col_status:
 if st.session_state.filter_mode:
     df = df[df["Mua Hay Ko"].isna()]
 
-
 # Đưa cột EAN về vị trí đầu tiên
 if "EAN" in df.columns:
     cols = ["EAN"] + [col for col in df.columns if col != "EAN"]
@@ -56,7 +55,11 @@ df = df.sort_values("__sale_order", ascending=False).drop(columns=["__sale_order
 st.title("🔎 Qogita Visual Decision Tool")
 st.markdown("Duyệt toàn bộ sản phẩm để xem ảnh và điền 'Mua Hay Ko'.")
 
-# Phân trang với session state và nút
+# ✅ Nút tải file Excel đã cập nhật
+with open(EXCEL_PATH, "rb") as f:
+    st.download_button("📥 Tải file Excel đã cập nhật", f, file_name=os.path.basename(EXCEL_PATH))
+
+# Phân trang
 page_size = 25
 num_pages = (len(df) - 1) // page_size + 1
 
@@ -71,7 +74,12 @@ with col_next:
     if st.button("▶️ Trang sau") and st.session_state.page < num_pages:
         st.session_state.page += 1
 
-selected_page = st.selectbox("Chọn trang", options=list(range(1, num_pages + 1)), index=st.session_state.page - 1, format_func=lambda x: f"Trang {x}")
+selected_page = st.selectbox(
+    "Chọn trang",
+    options=list(range(1, num_pages + 1)),
+    index=st.session_state.page - 1,
+    format_func=lambda x: f"Trang {x}"
+)
 st.session_state.page = selected_page
 
 start_idx = (selected_page - 1) * page_size
@@ -174,9 +182,4 @@ with st.container():
                 else:
                     st.warning(f"Không tìm thấy ảnh cho EAN {ean}")
 
-
-
-
-
 # python -m streamlit run "5-Check EAN to buy.py"
-
