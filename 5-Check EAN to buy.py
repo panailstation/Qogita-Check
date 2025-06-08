@@ -85,15 +85,17 @@ for idx in range(start_idx, min(end_idx, len(df))):
     ean = re.sub(r"[^0-9]", "", raw_ean)
 
     header_info = f"#{idx+1} | EAN: {raw_ean} | Sale: {selected_row.get('Sale', '')} | BSR: {selected_row.get('BSR', '')} | Seller: {selected_row.get('Seller', '')}"
-    show_details_key = f"show_{row_id}"
+    show_key = f"show_{row_id}"
 
-    # Hiển thị tiêu đề đầu dòng và checkbox
-    st.markdown(f"---\n### {header_info}")
-    st.checkbox("Hiện/ẩn chi tiết", key=show_details_key)
+    # Nếu chưa có trạng thái thì đặt mặc định là False
+    if show_key not in st.session_state:
+        st.session_state[show_key] = False
 
-    if st.session_state[show_details_key]:
+    with st.expander(header_info, expanded=st.session_state[show_key]):
+        # Khi mở expander, tự bật trạng thái checkbox
+        st.session_state[show_key] = True
+
         col1, col2 = st.columns([1, 5])
-
         with col1:
             options = ["", "Y", "N"]
             mua_value = selected_row.get("Mua Hay Ko", "")
@@ -172,14 +174,12 @@ for idx in range(start_idx, min(end_idx, len(df))):
             else:
                 st.warning(f"Không tìm thấy ảnh cho EAN {ean}")
 
-        # Lặp lại tiêu đề ở cuối dòng để dễ thu gọn
-        st.markdown(f"### {header_info}")
-        st.checkbox("Hiện/ẩn chi tiết", key=f"{show_details_key}_bottom", value=st.session_state[show_details_key], on_change=lambda: toggle_checkbox(show_details_key))
+    # Checkbox ở cuối – chỉ hiển thị trạng thái mở
+    if st.checkbox("📌 Hiện/ẩn chi tiết (bấm để ẩn)", value=st.session_state[show_key], key=f"{show_key}_check"):
+        pass
+    else:
+        st.warning("👉 Hãy bấm lại vào tiêu đề phía trên để thu gọn phần này.")
 
-
-# Hàm hỗ trợ đồng bộ checkbox đầu và cuối
-def toggle_checkbox(key):
-    st.session_state[key] = not st.session_state[key]
 
 
 # python -m streamlit run "5-Check EAN to buy.py"
