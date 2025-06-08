@@ -188,6 +188,11 @@ with st.container():
                 else:
                     st.warning(f"Không tìm thấy ảnh cho EAN {ean}")
 
+            # 🔽 Lặp lại tiêu đề để đóng nhanh
+            st.markdown("---")
+            st.markdown(f"⬆️ **[Thu gọn lại phần #{idx+1}](#)**")
+
+
 
 # python -m streamlit run "5-Check EAN to buy.py"
 
