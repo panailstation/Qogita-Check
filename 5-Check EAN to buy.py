@@ -133,7 +133,7 @@ with st.container():
 
             with col2:
                 # Hiển thị các trường cụ thể
-                fields_to_show = ["EAN", "Prix Qogita", "Prix amazon", "ASIN", "Coeff", "Profit"]
+                fields_to_show = ["EAN", "ASIN", "Coeff", "Profit", "Prix Qogita", "Prix amazon"]
                 for field in fields_to_show:
                     if field in selected_row:
                         st.markdown(f"**{field}**: {selected_row[field]}")
