@@ -1,10 +1,8 @@
 import streamlit as st
 import pandas as pd
 import os
-from PIL import Image
 import re
 import base64
-import numpy as np
 
 st.set_page_config(layout="wide")
 
@@ -18,42 +16,30 @@ if "filter_mode" not in st.session_state:
 
 col_filter, col_status = st.columns([1, 5])
 with col_filter:
-    if st.button("🔍 Lọc Mua Hay Ko", key="btn_filter_toggle"):
+    if st.button("🔍 Lọc Mua Hay Ko"):
         st.session_state.filter_mode = not st.session_state.filter_mode
 with col_status:
     if st.session_state.filter_mode:
-        st.success("Đang lọc: chỉ hiển thị các dòng chưa có quyết định Mua Hay Ko")
+        st.success("Đang lọc: chỉ các dòng chưa có quyết định Mua Hay Ko")
     else:
-        st.info("Đang hiển thị toàn bộ sản phẩm")
+        st.info("Hiển thị toàn bộ sản phẩm")
 
 if st.session_state.filter_mode:
     df = df[df["Mua Hay Ko"].isna()]
 
+# Ưu tiên cột EAN đầu tiên
 if "EAN" in df.columns:
-    cols = ["EAN"] + [col for col in df.columns if col != "EAN"]
-    df = df[cols]
+    df = df[["EAN"] + [c for c in df.columns if c != "EAN"]]
 
-sale_order = []
-for s in df["Sale"].astype(str):
-    match = re.search(r"(\d+(\.\d+)?)/mo", s)
-    if match:
-        sale_order.append(float(match.group(1)))
-    elif s.lower() == "unknown":
-        sale_order.append(-1)
-    else:
-        sale_order.append(0)
-df["__sale_order"] = sale_order
+# Sắp xếp theo Sale
+df["__sale_order"] = df["Sale"].astype(str).apply(
+    lambda s: float(re.search(r"(\d+(\.\d+)?)/mo", s).group(1)) if re.search(r"(\d+(\.\d+)?)/mo", s) else -1
+)
 df = df.sort_values("__sale_order", ascending=False).drop(columns=["__sale_order"])
 
-st.title("🔎 Qogita Visual Decision Tool")
-st.markdown("Duyệt toàn bộ sản phẩm để xem ảnh và điền 'Mua Hay Ko'.")
-
-with open(EXCEL_PATH, "rb") as f:
-    st.download_button("📥 Tải file Excel đã cập nhật", f, file_name=os.path.basename(EXCEL_PATH))
-
+# Phân trang
 page_size = 25
 num_pages = (len(df) - 1) // page_size + 1
-
 if "page" not in st.session_state:
     st.session_state.page = 1
 
@@ -65,70 +51,58 @@ with col_next:
     if st.button("▶️ Trang sau") and st.session_state.page < num_pages:
         st.session_state.page += 1
 
-selected_page = st.selectbox(
-    "Chọn trang",
-    options=list(range(1, num_pages + 1)),
-    index=st.session_state.page - 1,
-    format_func=lambda x: f"Trang {x}"
-)
+selected_page = st.selectbox("Chọn trang", range(1, num_pages + 1), index=st.session_state.page - 1)
 st.session_state.page = selected_page
-
 start_idx = (selected_page - 1) * page_size
 end_idx = start_idx + page_size
 
-st.subheader(f"📋 Danh sách sản phẩm - Trang {selected_page}/{num_pages}")
+st.title("🔎 Qogita Visual Decision Tool")
 
 for idx in range(start_idx, min(end_idx, len(df))):
-    selected_row = df.iloc[idx]
-    row_id = selected_row.name
-    raw_ean = str(selected_row["EAN"])
-    ean = re.sub(r"[^0-9]", "", raw_ean)
+    row = df.iloc[idx]
+    row_id = row.name
+    ean = str(row["EAN"])
+    key_toggle = f"show_{row_id}"
 
-    header_info = f"#{idx+1} | EAN: {raw_ean} | Sale: {selected_row.get('Sale', '')} | BSR: {selected_row.get('BSR', '')} | Seller: {selected_row.get('Seller', '')}"
-    show_key = f"show_{row_id}"
+    # Khởi tạo trạng thái nếu chưa có
+    if key_toggle not in st.session_state:
+        st.session_state[key_toggle] = False
 
-    # Nếu chưa có trạng thái thì đặt mặc định là False
-    if show_key not in st.session_state:
-        st.session_state[show_key] = False
+    # Click vào tiêu đề để mở chi tiết
+    if st.button(f"▶️ #{idx+1} | EAN: {ean} | Sale: {row.get('Sale','')} | BSR: {row.get('BSR','')} | Seller: {row.get('Seller','')}", key=f"title_{row_id}"):
+        st.session_state[key_toggle] = True
 
-    with st.expander(header_info, expanded=st.session_state[show_key]):
-        # Khi mở expander, tự bật trạng thái checkbox
-        st.session_state[show_key] = True
-
+    if st.session_state[key_toggle]:
         col1, col2 = st.columns([1, 5])
         with col1:
+            # Mua hay không
             options = ["", "Y", "N"]
-            mua_value = selected_row.get("Mua Hay Ko", "")
-            if pd.isna(mua_value):
-                mua_value = ""
-            default_index = options.index(mua_value) if mua_value in options else 0
+            mua_val = row.get("Mua Hay Ko", "")
+            default_index = options.index(mua_val) if mua_val in options else 0
+            decision = st.selectbox("📌 Mua Hay Ko", options, index=default_index, key=f"dec_{row_id}")
 
-            decision = st.selectbox(f"📌 Mua Hay Ko (#{idx+1})", options,
-                                    index=default_index,
-                                    key=f"decision_{row_id}")
-
-            if st.button(f"✅ Cập nhật dòng {row_id+1}", key=f"btn_{row_id}"):
+            if st.button("✅ Cập nhật", key=f"save_{row_id}"):
                 df.at[row_id, "Mua Hay Ko"] = decision
                 df.to_excel(EXCEL_PATH, index=False)
-                st.success(f"Đã cập nhật dòng {row_id+1}!")
+                st.success("Đã lưu!")
 
-            if selected_row.get("Product Link"):
-                st.markdown(f"[🔗 Link Qogita]({selected_row['Product Link']})")
+            # Links
+            if row.get("Product Link"):
+                st.markdown(f"[🔗 Link Qogita]({row['Product Link']})")
             st.markdown(f"[🔗 Link Selleramp](https://sas.selleramp.com/sas/lookup?search_term={ean})")
-            if selected_row.get("Link Amazon.fr"):
-                st.markdown(f"[🔗 Link Amazon.fr]({selected_row['Link Amazon.fr']})")
+            if row.get("Link Amazon.fr"):
+                st.markdown(f"[🔗 Link Amazon.fr]({row['Link Amazon.fr']})")
 
         with col2:
-            fields_to_show = ["EAN", "Prix Qogita", "Prix amazon", "ASIN", "Coeff", "Profit"]
-            for field in fields_to_show:
-                if field in selected_row:
-                    st.markdown(f"**{field}**: {selected_row[field]}")
+            fields = ["EAN", "Prix Qogita", "Prix amazon", "ASIN", "Coeff", "Profit"]
+            for f in fields:
+                if f in row:
+                    st.markdown(f"**{f}**: {row[f]}")
 
-            image_path = os.path.join(IMAGE_DIR, f"{ean}.png")
-            if os.path.exists(image_path):
-                with open(image_path, "rb") as img_file:
-                    img_bytes = img_file.read()
-                    encoded = base64.b64encode(img_bytes).decode()
+            img_path = os.path.join(IMAGE_DIR, f"{ean}.png")
+            if os.path.exists(img_path):
+                with open(img_path, "rb") as img_file:
+                    encoded = base64.b64encode(img_file.read()).decode()
 
                 st.components.v1.html(
                     f"""
@@ -172,13 +146,13 @@ for idx in range(start_idx, min(end_idx, len(df))):
                     scrolling=True
                 )
             else:
-                st.warning(f"Không tìm thấy ảnh cho EAN {ean}")
+                st.warning("❌ Không tìm thấy ảnh")
 
-    # Checkbox ở cuối – chỉ hiển thị trạng thái mở
-    if st.checkbox("📌 Hiện/ẩn chi tiết (bấm để ẩn)", value=st.session_state[show_key], key=f"{show_key}_check"):
-        pass
-    else:
-        st.warning("👉 Hãy bấm lại vào tiêu đề phía trên để thu gọn phần này.")
+        # Checkbox để ẩn chi tiết
+        if not st.checkbox("Ẩn chi tiết dòng này", key=f"hide_{row_id}"):
+            pass
+        else:
+            st.session_state[key_toggle] = False
 
 
 
