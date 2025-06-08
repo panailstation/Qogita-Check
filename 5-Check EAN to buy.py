@@ -112,7 +112,6 @@ with st.container():
             col1, col2 = st.columns([1, 5])
 
             with col1:
-                st.write(selected_row)
                 options = ["", "Y", "N"]
                 default_index = 0
                 if isinstance(mua_value, str) and mua_value in options:
@@ -133,6 +132,13 @@ with st.container():
                     st.markdown(f"[🔗 Link Amazon.fr]({amazon_link})")
 
             with col2:
+                # Hiển thị các trường cụ thể
+                fields_to_show = ["EAN", "Prix Qogita", "Prix amazon", "ASIN", "Coeff", "Profit"]
+                for field in fields_to_show:
+                    if field in selected_row:
+                        st.markdown(f"**{field}**: {selected_row[field]}")
+
+                # Hiển thị ảnh nếu có
                 if os.path.exists(image_path):
                     with open(image_path, "rb") as img_file:
                         img_bytes = img_file.read()
@@ -181,9 +187,6 @@ with st.container():
                     )
                 else:
                     st.warning(f"Không tìm thấy ảnh cho EAN {ean}")
-
-
-
 
 # python -m streamlit run "5-Check EAN to buy.py"
 
