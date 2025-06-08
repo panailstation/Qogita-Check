@@ -87,6 +87,7 @@ for idx in range(start_idx, min(end_idx, len(df))):
     header_info = f"#{idx+1} | EAN: {raw_ean} | Sale: {selected_row.get('Sale', '')} | BSR: {selected_row.get('BSR', '')} | Seller: {selected_row.get('Seller', '')}"
     show_details_key = f"show_{row_id}"
 
+    # Hiển thị tiêu đề đầu dòng và checkbox
     st.markdown(f"---\n### {header_info}")
     st.checkbox("Hiện/ẩn chi tiết", key=show_details_key)
 
@@ -171,7 +172,14 @@ for idx in range(start_idx, min(end_idx, len(df))):
             else:
                 st.warning(f"Không tìm thấy ảnh cho EAN {ean}")
 
+        # Lặp lại tiêu đề ở cuối dòng để dễ thu gọn
+        st.markdown(f"### {header_info}")
+        st.checkbox("Hiện/ẩn chi tiết", key=f"{show_details_key}_bottom", value=st.session_state[show_details_key], on_change=lambda: toggle_checkbox(show_details_key))
 
+
+# Hàm hỗ trợ đồng bộ checkbox đầu và cuối
+def toggle_checkbox(key):
+    st.session_state[key] = not st.session_state[key]
 
 
 # python -m streamlit run "5-Check EAN to buy.py"
